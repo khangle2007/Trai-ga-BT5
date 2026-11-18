@@ -116,6 +116,7 @@ public class Expression {
         }
 
         result.setText(result.getText() + number);
+        updateExpression(result);
     }
 
     public void handleAnother(int viewId) {
