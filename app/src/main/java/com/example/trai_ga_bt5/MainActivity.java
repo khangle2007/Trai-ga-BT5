@@ -3,13 +3,10 @@ package com.example.trai_ga_bt5;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -19,10 +16,6 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import java.util.Stack;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 public class MainActivity extends AppCompatActivity{
     private View[] buttons;
     private TextView subtend, result, percent;
@@ -30,6 +23,21 @@ public class MainActivity extends AppCompatActivity{
 
     private Handler handler;
     private Runnable update;
+    private ButtonHandler buttonHandler;
+    private Process process;
+    private Expression expression;
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        outState.putString("subtend", subtend.getText().toString());
+        outState.putString("result", result.getText().toString());
+        outState.putBoolean("isDegree", buttonHandler.isDegree());
+        outState.putString("expression", expression.getExpression());
+        outState.putInt("progress", progressBar.getProgress());
+        outState.putBoolean("isRunning", process.isRunning());
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,16 +51,16 @@ public class MainActivity extends AppCompatActivity{
                 findViewById(R.id.mu),
                 findViewById(R.id.deg),
 
-                findViewById(R.id.button20),
-                findViewById(R.id.button16),
-                findViewById(R.id.button17),
-                findViewById(R.id.button18),
-                findViewById(R.id.button13),
-                findViewById(R.id.button14),
-                findViewById(R.id.button15),
-                findViewById(R.id.button9),
-                findViewById(R.id.button10),
-                findViewById(R.id.button11),
+                findViewById(R.id.number0),
+                findViewById(R.id.number1),
+                findViewById(R.id.number2),
+                findViewById(R.id.number3),
+                findViewById(R.id.number4),
+                findViewById(R.id.number5),
+                findViewById(R.id.number6),
+                findViewById(R.id.number7),
+                findViewById(R.id.number8),
+                findViewById(R.id.number9),
 
                 findViewById(R.id.delete),
                 findViewById(R.id.Ac),
@@ -64,29 +72,155 @@ public class MainActivity extends AppCompatActivity{
                 findViewById(R.id.submit)
         };
 
-        subtend = findViewById(R.id.textView3);
-        result = findViewById(R.id.textView4);
+        subtend = findViewById(R.id.subtend);
+        result = findViewById(R.id.result);
 
         progressBar = findViewById(R.id.progressBar);
-        percent = findViewById(R.id.textView);
+        percent = findViewById(R.id.percent);
 
-        Process process = new Process(progressBar, percent, subtend, result);
-        Expression expression = new Expression(result, subtend, process);
+        process = new Process(progressBar, percent);
 
-        for (View button : buttons) {
-            button.setOnClickListener(new ButtonHandler(expression));
+        expression = new Expression();
+        expression.setExpression(result.getText().toString());
+
+        buttonHandler = new ButtonHandler(expression, this, process);
+
+        if (savedInstanceState != null) {
+
+            expression.setExpression(
+                    savedInstanceState.getString("expression", "0")
+            );
+
+            buttonHandler.setDegree(
+                    savedInstanceState.getBoolean("isDegree", false)
+            );
+
+            int savedProgress = savedInstanceState.getInt("progress", 0);
+
+            process.restoreProgress(savedProgress);
+
+            if (savedInstanceState.getBoolean("isRunning", false)) {
+                process.start();
+            }
+
+            result.setText(expression.getExpression());
+
+            result.setText(savedInstanceState.getString(
+                    "result", expression.getExpression()
+            ));
+
+            subtend.setText(savedInstanceState.getString("subtend", ""));
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets imeInset = insets.getInsets(WindowInsetsCompat.Type.ime());
 
-            result.setTranslationY(-imeInset.bottom);
 
-            return insets;
-        });
+        for (View button : buttons) {
 
-        subtend.setText("");
-        result.setText("0");
+            button.setOnClickListener(v -> {
 
+                String previousExpression = expression.getExpression();
+
+                buttonHandler.onClick(v);
+
+                String currentExpression = expression.getExpression();
+
+                TextView deg = findViewById(R.id.deg);
+
+                if(buttonHandler.isDegree())
+                {
+                    deg.setText("rad");
+                }
+                else
+                {
+                    deg.setText("deg");
+                }
+
+
+                if (v.getId() == R.id.submit
+                        && currentExpression.startsWith("=")) {
+
+                    subtend.setText(previousExpression);
+                    colorExpression(subtend, previousExpression);
+                }
+
+
+                result.setText(currentExpression);
+                colorExpression(result, currentExpression);
+            });
+        }
+
+
+        colorExpression(result, expression.getExpression());
+        updateExpression(subtend);
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main),
+                (v, insets) -> {
+                    Insets imeInset = insets.getInsets(WindowInsetsCompat.Type.ime());
+
+                    result.setTranslationY(-imeInset.bottom);
+
+                    return insets;
+                }
+        );
+    }
+
+    public void colorExpression(TextView textView, String expression) {
+
+        SpannableString spannable = new SpannableString(expression);
+
+        if (expression.equals("Divide by zero")
+                || expression.equals("Invalid operand")
+                || expression.equals("Expression invalid")
+                || expression.equals("Error")) {
+
+            textView.setText(spannable);
+            return;
+        }
+
+        int operatorColor = Color.parseColor("#5689F5");
+
+        for (int i = 0; i < expression.length(); i++) {
+
+            char c = expression.charAt(i);
+
+            if (c == '+' || c == '-' || c == '*'
+                    || c == '/' || c == 'e'
+                    || c == 's' || c == 'i' || c == 'n' || c == 'μ') {
+
+                spannable.setSpan(
+                        new ForegroundColorSpan(operatorColor),
+                        i,
+                        i + 1,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                );
+            }
+        }
+
+        textView.setText(spannable);
+    }
+
+    public void updateExpression(TextView subtend) {
+
+        String expression = subtend.getText().toString();
+
+        colorExpression(subtend, expression);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        if (process != null) {
+            process.stop();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (process != null) {
+            process.stop();
+        }
     }
 }

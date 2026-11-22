@@ -1,4 +1,3 @@
-
 package com.example.trai_ga_bt5;
 
 import android.os.Handler;
@@ -13,15 +12,14 @@ public class Process {
 
     private final ProgressBar progressBar;
     private final TextView percent;
-    private final TextView subtend;
-    private final TextView result;
 
-    public Process(ProgressBar progressBar, TextView percent, TextView subtend, TextView result) {
+    private int currentProgress = 0;
+    private boolean isRunning = false;
+
+    public Process(ProgressBar progressBar, TextView percent) {
 
         this.progressBar = progressBar;
         this.percent = percent;
-        this.subtend = subtend;
-        this.result = result;
 
         handler = new Handler(Looper.getMainLooper());
 
@@ -29,48 +27,51 @@ public class Process {
             @Override
             public void run() {
 
-                int current = progressBar.getProgress();
-
-                if (current < 100) {
-
-                    progressBar.setProgress(current + 1);
-
-                    int num = Integer.parseInt(
-                            percent.getText()
-                                    .subSequence(0, percent.getText().length() - 1)
-                                    .toString()
-                    );
-
-                    percent.setText(num + 1 + "%");
-
-                    handler.postDelayed(this, 100);
-
-                } else {
-
+                if (currentProgress >= 100) {
                     stop();
                     reset();
-
-                    subtend.setText("");
-                    result.setText("0");
+                    return;
                 }
+
+                currentProgress++;
+
+                progressBar.setProgress(currentProgress, false);
+                percent.setText(currentProgress + "%");
+
+                handler.postDelayed(this, 100);
             }
         };
     }
 
+    public boolean isRunning(){
+        return isRunning;
+    }
+
     public void start() {
         handler.removeCallbacks(update);
+        isRunning = true;
         handler.post(update);
     }
 
     public void stop() {
         handler.removeCallbacks(update);
+        isRunning = false;
     }
 
     public void reset() {
         stop();
-        progressBar.setProgress(0);
+
+        currentProgress = 0;
+
+        progressBar.setProgress(0, false);
         percent.setText("0%");
-        subtend.setText("");
-        result.setText("0");
     }
+
+    public void restoreProgress(int progress) {
+        currentProgress = Math.max(0, Math.min(progress, 100));
+
+        progressBar.setProgress(currentProgress);
+        percent.setText(currentProgress + "%");
+    }
+
 }
