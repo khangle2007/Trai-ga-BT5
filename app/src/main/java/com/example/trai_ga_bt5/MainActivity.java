@@ -103,8 +103,6 @@ public class MainActivity extends AppCompatActivity{
                 process.start();
             }
 
-            result.setText(expression.getExpression());
-
             result.setText(savedInstanceState.getString(
                     "result", expression.getExpression()
             ));
@@ -148,6 +146,14 @@ public class MainActivity extends AppCompatActivity{
                 colorExpression(result, currentExpression);
             });
         }
+
+        process.setOnProcessCompleteListener(() -> {
+            process.reset();
+
+            subtend.setText("");
+            result.setText("0");
+            expression.setExpression("0");
+        });
 
 
         colorExpression(result, expression.getExpression());

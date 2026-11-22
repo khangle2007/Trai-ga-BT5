@@ -15,6 +15,7 @@ public class Process {
 
     private int currentProgress = 0;
     private boolean isRunning = false;
+    private OnProcessCompleteListener listener;
 
     public Process(ProgressBar progressBar, TextView percent) {
 
@@ -29,8 +30,11 @@ public class Process {
 
                 if (currentProgress >= 100) {
                     stop();
-                    reset();
-                    return;
+
+                    if (listener != null) {
+                        listener.onComplete();
+                        return;
+                    }
                 }
 
                 currentProgress++;
@@ -41,6 +45,14 @@ public class Process {
                 handler.postDelayed(this, 100);
             }
         };
+    }
+
+    public void setOnProcessCompleteListener(OnProcessCompleteListener listener) {
+        this.listener = listener;
+    }
+
+    public interface OnProcessCompleteListener {
+        void onComplete();
     }
 
     public boolean isRunning(){
